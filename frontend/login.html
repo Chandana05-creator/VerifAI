@@ -2,316 +2,466 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VerifAI — Log in</title>
-  <link rel="stylesheet" href="app.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VerifAI — Login</title>
+    <link rel="stylesheet" href="app.css">
 </head>
 
 <body>
-  <div class="wrap">
+<div class="wrap">
     <div id="nav"></div>
 
     <div class="auth">
-      <div class="card">
+        <div class="card">
+            <h1>Welcome to VerifAI</h1>
+            <p class="note">Research, fact-check, and verify information.</p>
 
-        <div class="tabs" id="main-tabs">
-          <button class="tab active" id="t-login" type="button">Log in</button>
-          <button class="tab" id="t-reg" type="button">Register</button>
+            <div class="tabs" id="main-tabs">
+                <button class="tab active" id="t-login" type="button">Log in</button>
+                <button class="tab" id="t-reg" type="button">Register</button>
+            </div>
+
+            <div id="err" class="err" role="alert"></div>
+            <div id="success" class="note" role="status"></div>
+
+            <!-- LOGIN AND REGISTER -->
+            <section id="login-panel">
+                <div id="name-box" hidden>
+                    <label for="name">Name</label>
+                    <input type="text" id="name" autocomplete="name">
+                </div>
+
+                <label for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    autocomplete="email"
+                    placeholder="Enter your email"
+                    required
+                >
+
+                <label for="pw">Password</label>
+                <input
+                    type="password"
+                    id="pw"
+                    autocomplete="current-password"
+                    placeholder="Enter your password"
+                    required
+                >
+
+                <div class="row" style="justify-content:flex-end;margin-top:8px">
+                    <button type="button" class="link-button" id="forgot-link">
+                        Forgot password?
+                    </button>
+                </div>
+
+                <div class="row" style="margin-top:14px">
+                    <button id="submit" type="button">Log in</button>
+                </div>
+
+                <p class="note">
+                    Logging in keeps your checks in History and lets you share reports.
+                    You can also use VerifAI without an account.
+                </p>
+            </section>
+
+            <!-- FORGOT PASSWORD -->
+            <section id="forgot-panel" hidden>
+                <h2>Forgot your password?</h2>
+
+                <p class="note">
+                    Enter the email address associated with your VerifAI account.
+                    If password recovery is enabled, you can request reset instructions.
+                </p>
+
+                <label for="forgot-email">Email</label>
+                <input
+                    type="email"
+                    id="forgot-email"
+                    autocomplete="email"
+                    placeholder="Enter your registered email"
+                    required
+                >
+
+                <div class="err" id="forgot-err" role="alert"></div>
+                <div class="note" id="forgot-success" role="status"></div>
+
+                <div class="row" style="margin-top:14px">
+                    <button id="forgot-submit" type="button">
+                        Send reset instructions
+                    </button>
+
+                    <button id="back-login" type="button" class="secondary-button">
+                        Back to login
+                    </button>
+                </div>
+
+                <div id="dev-reset-box" hidden>
+                    <p class="note">
+                        Local development only: enter the reset token returned by
+                        your backend. Production applications should send a reset
+                        link by email instead.
+                    </p>
+
+                    <label for="reset-token">Reset token</label>
+                    <input
+                        type="text"
+                        id="reset-token"
+                        autocomplete="off"
+                        placeholder="Paste your reset token"
+                    >
+
+                    <button type="button" id="open-reset" style="margin-top:12px">
+                        Continue to reset password
+                    </button>
+                </div>
+            </section>
+
+            <!-- RESET PASSWORD -->
+            <section id="reset-panel" hidden>
+                <h2>Set a new password</h2>
+
+                <p class="note">
+                    Enter your reset token and choose a new password.
+                </p>
+
+                <label for="new-pw">New password</label>
+                <input
+                    type="password"
+                    id="new-pw"
+                    autocomplete="new-password"
+                    minlength="8"
+                    maxlength="128"
+                    placeholder="At least 8 characters"
+                    required
+                >
+
+                <label for="confirm-pw">Confirm new password</label>
+                <input
+                    type="password"
+                    id="confirm-pw"
+                    autocomplete="new-password"
+                    minlength="8"
+                    maxlength="128"
+                    placeholder="Enter the password again"
+                    required
+                >
+
+                <div class="err" id="reset-err" role="alert"></div>
+                <div class="note" id="reset-success" role="status"></div>
+
+                <div class="row" style="margin-top:14px">
+                    <button id="reset-submit" type="button">
+                        Reset password
+                    </button>
+
+                    <button id="reset-back" type="button" class="secondary-button">
+                        Back to login
+                    </button>
+                </div>
+            </section>
         </div>
-
-        <!-- Login and registration form -->
-        <section id="login-panel">
-          <div id="name-box" hidden>
-            <label for="name">Name</label>
-            <input type="text" id="name" autocomplete="name">
-          </div>
-
-          <label for="email">Email</label>
-          <input type="email" id="email" autocomplete="email"
-                 placeholder="Enter your email">
-
-          <label for="pw">Password</label>
-          <input type="password" id="pw" autocomplete="current-password"
-                 placeholder="Enter your password">
-
-          <div class="row" style="justify-content:flex-end;margin-top:8px">
-            <button type="button" class="link-button" id="forgot-link">
-              Forgot password?
-            </button>
-          </div>
-
-          <div class="err" id="err" role="alert"></div>
-          <div class="note" id="success" role="status"></div>
-
-          <div class="row" style="margin-top:14px">
-            <button id="submit" type="button">Log in</button>
-          </div>
-
-          <div class="note">
-            Logging in keeps your checks in History and lets you share reports.
-            You can also use VerifAI without an account.
-          </div>
-        </section>
-
-        <!-- Forgot-password request form -->
-        <section id="forgot-panel" hidden>
-          <h2>Forgot your password?</h2>
-          <p class="note">
-            Enter the email address associated with your VerifAI account.
-            If password recovery is enabled, you'll receive instructions.
-          </p>
-
-          <label for="forgot-email">Email</label>
-          <input type="email" id="forgot-email" autocomplete="email"
-                 placeholder="Enter your registered email">
-
-          <div class="err" id="forgot-err" role="alert"></div>
-          <div class="note" id="forgot-success" role="status"></div>
-
-          <div class="row" style="margin-top:14px">
-            <button id="forgot-submit" type="button">Send reset instructions</button>
-            <button id="back-login" type="button" class="secondary-button">
-              Back to login
-            </button>
-          </div>
-        </section>
-
-        <!-- Set a new password using a reset token -->
-        <section id="reset-panel" hidden>
-          <h2>Set a new password</h2>
-
-          <p class="note">
-            Open the password-reset link sent to your email to reach this form.
-          </p>
-
-          <label for="new-pw">New password</label>
-          <input type="password" id="new-pw" autocomplete="new-password"
-                 minlength="6" placeholder="At least 6 characters">
-
-          <label for="confirm-pw">Confirm new password</label>
-          <input type="password" id="confirm-pw" autocomplete="new-password"
-                 minlength="6" placeholder="Enter the password again">
-
-          <div class="err" id="reset-err" role="alert"></div>
-          <div class="note" id="reset-success" role="status"></div>
-
-          <div class="row" style="margin-top:14px">
-            <button id="reset-submit" type="button">Reset password</button>
-            <button id="reset-back" type="button" class="secondary-button">
-              Back to login
-            </button>
-          </div>
-        </section>
-
-      </div>
     </div>
-  </div>
+</div>
 
-  <script src="common.js"></script>
-  <script>
+<script src="common.js"></script>
+
+<script>
     renderNav("login");
 
     let mode = "login";
 
-    const showPanel = (panelId) => {
-      ["login-panel", "forgot-panel", "reset-panel"].forEach((id) => {
-        $(id).hidden = id !== panelId;
-      });
+    const $id = (id) => document.getElementById(id);
 
-      $("main-tabs").hidden = panelId !== "login-panel";
-    };
+    function showPanel(panelId) {
+        ["login-panel", "forgot-panel", "reset-panel"].forEach((id) => {
+            $id(id).hidden = id !== panelId;
+        });
 
-    function setMode(m) {
-      mode = m;
-
-      $("t-login").classList.toggle("active", m === "login");
-      $("t-reg").classList.toggle("active", m === "reg");
-
-      $("name-box").hidden = m !== "reg";
-      $("pw").autocomplete = m === "reg" ? "new-password" : "current-password";
-      $("forgot-link").hidden = m !== "login";
-      $("submit").textContent = m === "reg" ? "Create account" : "Log in";
-
-      $("err").textContent = "";
-      $("success").textContent = "";
-
-      showPanel("login-panel");
+        $id("main-tabs").hidden = panelId !== "login-panel";
     }
 
-    $("t-login").onclick = () => setMode("login");
-    $("t-reg").onclick = () => setMode("reg");
+    function showError(id, message) {
+        $id(id).textContent = message || "";
+    }
 
-    $("forgot-link").onclick = () => {
-      $("forgot-email").value = $("email").value.trim();
-      $("forgot-err").textContent = "";
-      $("forgot-success").textContent = "";
-      showPanel("forgot-panel");
-    };
+    function clearMessages() {
+        [
+            "err",
+            "success",
+            "forgot-err",
+            "forgot-success",
+            "reset-err",
+            "reset-success"
+        ].forEach((id) => showError(id, ""));
+    }
 
-    $("back-login").onclick = () => showPanel("login-panel");
-    $("reset-back").onclick = () => {
-      history.replaceState({}, "", location.pathname);
-      $("reset-err").textContent = "";
-      showPanel("login-panel");
-    };
+    function setMode(newMode) {
+        mode = newMode;
 
-    async function submit() {
-      $("err").textContent = "";
-      $("success").textContent = "";
+        $id("t-login").classList.toggle("active", mode === "login");
+        $id("t-reg").classList.toggle("active", mode === "reg");
 
-      const email = $("email").value.trim();
-      const password = $("pw").value;
+        $id("name-box").hidden = mode !== "reg";
 
-      if (!email || !password) {
-        $("err").textContent = "Please enter your email and password.";
-        return;
-      }
+        $id("pw").autocomplete =
+            mode === "reg" ? "new-password" : "current-password";
 
-      $("submit").disabled = true;
+        $id("forgot-link").hidden = mode !== "login";
 
-      try {
-        if (mode === "reg") {
-          if (password.length < 6) {
-            throw new Error("Use a password of at least 6 characters.");
-          }
+        $id("submit").textContent =
+            mode === "reg" ? "Create account" : "Log in";
 
-          await api("/auth/register", {
-            method: "POST",
-            body: {
-              email,
-              password,
-              name: $("name").value.trim() || email.split("@")[0]
-            }
-          });
+        clearMessages();
+        showPanel("login-panel");
+    }
+
+    $id("t-login").addEventListener("click", () => setMode("login"));
+    $id("t-reg").addEventListener("click", () => setMode("reg"));
+
+    $id("forgot-link").addEventListener("click", () => {
+        $id("forgot-email").value = $id("email").value.trim();
+        $id("dev-reset-box").hidden = true;
+
+        clearMessages();
+        showPanel("forgot-panel");
+    });
+
+    $id("back-login").addEventListener("click", () => {
+        clearMessages();
+        showPanel("login-panel");
+        setMode("login");
+    });
+
+    $id("reset-back").addEventListener("click", () => {
+        clearMessages();
+        showPanel("login-panel");
+        setMode("login");
+    });
+
+    // LOGIN OR REGISTER
+    async function submitAuth() {
+        clearMessages();
+
+        const email = $id("email").value.trim().toLowerCase();
+        const password = $id("pw").value;
+        const name = $id("name").value.trim() || email.split("@")[0];
+
+        if (!email || !password) {
+            showError("err", "Please enter your email and password.");
+            return;
         }
 
-        const t = await api("/auth/login", {
-          method: "POST",
-          body: { email, password }
-        });
+        if (mode === "reg" && password.length < 8) {
+            showError("err", "Use a password of at least 8 characters.");
+            return;
+        }
 
-        const me = await api("/auth/me", {
-          method: "GET"
-        });
+        const button = $id("submit");
+        button.disabled = true;
 
-        setLogin(t.access_token, me);
-        goto("index.html");
+        try {
+            if (mode === "reg") {
+                await api("/auth/register", {
+                    method: "POST",
+                    body: { email, password, name }
+                });
+            }
 
-      } catch (e) {
-        $("err").textContent = e.message || "Unable to log in.";
-      } finally {
-        $("submit").disabled = false;
-      }
+            const result = await api("/auth/login", {
+                method: "POST",
+                body: { email, password }
+            });
+
+            if (!result || !result.access_token) {
+                throw new Error("The server did not return an access token.");
+            }
+
+            setLogin(result.access_token, { email, name });
+
+            try {
+                const user = await api("/auth/me");
+                setLogin(result.access_token, user);
+            } catch (profileError) {
+                console.error("Could not load user profile:", profileError);
+                throw new Error(
+                    "Login succeeded, but the server could not validate your session. " +
+                    "Please check the backend authentication settings."
+                );
+            }
+
+            window.location.href = "index.html";
+
+        } catch (error) {
+            localStorage.removeItem("verifai_token");
+            localStorage.removeItem("verifai_user");
+
+            showError(
+                "err",
+                error.message || "Login or registration failed."
+            );
+        } finally {
+            button.disabled = false;
+        }
     }
 
-    async function requestPasswordReset() {
-      $("forgot-err").textContent = "";
-      $("forgot-success").textContent = "";
-
-      const email = $("forgot-email").value.trim();
-
-      if (!email) {
-        $("forgot-err").textContent = "Please enter your email address.";
-        return;
-      }
-
-      $("forgot-submit").disabled = true;
-
-      try {
-        const result = await api("/auth/forgot-password", {
-          method: "POST",
-          body: { email }
-        });
-
-        $("forgot-success").textContent =
-          result.message ||
-          "If the account is eligible, password-reset instructions will be sent.";
-
-      } catch (e) {
-        $("forgot-err").textContent =
-          e.message || "Unable to request password recovery.";
-
-      } finally {
-        $("forgot-submit").disabled = false;
-      }
-    }
-
-    async function resetPassword() {
-      $("reset-err").textContent = "";
-      $("reset-success").textContent = "";
-
-      const token = new URLSearchParams(location.search).get("token");
-      const password = $("new-pw").value;
-      const confirmPassword = $("confirm-pw").value;
-
-      if (!token) {
-        $("reset-err").textContent =
-          "The reset token is missing. Please open the reset link from your email.";
-        return;
-      }
-
-      if (password.length < 6) {
-        $("reset-err").textContent =
-          "Your new password must contain at least 6 characters.";
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        $("reset-err").textContent = "The passwords do not match.";
-        return;
-      }
-
-      $("reset-submit").disabled = true;
-
-      try {
-        const result = await api("/auth/reset-password", {
-          method: "POST",
-          body: { token, new_password: password }
-        });
-
-        $("reset-success").textContent =
-          result.message || "Password reset successfully. You can now log in.";
-
-        $("new-pw").value = "";
-        $("confirm-pw").value = "";
-
-      } catch (e) {
-        $("reset-err").textContent =
-          e.message || "Unable to reset your password.";
-
-      } finally {
-        $("reset-submit").disabled = false;
-      }
-    }
-
-    $("submit").onclick = submit;
-    $("forgot-submit").onclick = requestPasswordReset;
-    $("reset-submit").onclick = resetPassword;
+    $id("submit").addEventListener("click", submitAuth);
 
     ["email", "pw", "name"].forEach((id) => {
-      $(id).addEventListener("keydown", (e) => {
-        if (e.key === "Enter") submit();
-      });
+        $id(id).addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                submitAuth();
+            }
+        });
     });
 
-    $("forgot-email").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") requestPasswordReset();
-    });
+    // REQUEST PASSWORD RESET
+    async function requestPasswordReset() {
+        showError("forgot-err", "");
+        showError("forgot-success", "");
+        $id("dev-reset-box").hidden = true;
 
-    ["new-pw", "confirm-pw"].forEach((id) => {
-      $(id).addEventListener("keydown", (e) => {
-        if (e.key === "Enter") resetPassword();
-      });
-    });
+        const email = $id("forgot-email").value.trim().toLowerCase();
 
-    // Open the reset form when a valid reset-link URL is supplied.
-    if (new URLSearchParams(location.search).has("token")) {
-      showPanel("reset-panel");
-    } else {
-      showPanel("login-panel");
+        if (!email) {
+            showError("forgot-err", "Please enter your email address.");
+            return;
+        }
+
+        const button = $id("forgot-submit");
+        button.disabled = true;
+
+        try {
+            const result = await api("/auth/forgot-password", {
+                method: "POST",
+                body: { email }
+            });
+
+            showError(
+                "forgot-success",
+                result.message ||
+                "If an account exists, reset instructions have been generated."
+            );
+
+            // Local development only.
+            // The production backend should email the reset link instead.
+            if (result.reset_token) {
+                $id("reset-token").value = result.reset_token;
+                $id("dev-reset-box").hidden = false;
+            }
+
+        } catch (error) {
+            showError(
+                "forgot-err",
+                "Password recovery failed: " +
+                (error.message || "Please try again.")
+            );
+        } finally {
+            button.disabled = false;
+        }
     }
-  </script>
+
+    $id("forgot-submit").addEventListener(
+        "click",
+        requestPasswordReset
+    );
+
+    // OPEN RESET FORM
+    $id("open-reset").addEventListener("click", () => {
+        const token = $id("reset-token").value.trim();
+
+        if (!token) {
+            showError("forgot-err", "Enter the reset token first.");
+            return;
+        }
+
+        clearMessages();
+        showPanel("reset-panel");
+    });
+
+    // RESET PASSWORD
+    async function resetPassword() {
+        showError("reset-err", "");
+        showError("reset-success", "");
+
+        const token = $id("reset-token").value.trim();
+        const password = $id("new-pw").value;
+        const confirmation = $id("confirm-pw").value;
+
+        if (!token) {
+            showError(
+                "reset-err",
+                "The reset token is missing. Request a new reset token."
+            );
+            return;
+        }
+
+        if (password.length < 8) {
+            showError(
+                "reset-err",
+                "Your new password must contain at least 8 characters."
+            );
+            return;
+        }
+
+        if (password !== confirmation) {
+            showError("reset-err", "The passwords do not match.");
+            return;
+        }
+
+        const button = $id("reset-submit");
+        button.disabled = true;
+
+        try {
+            const result = await api("/auth/reset-password", {
+                method: "POST",
+                body: {
+                    token: token,
+                    new_password: password
+                }
+            });
+
+            showError(
+                "reset-success",
+                result.message ||
+                "Password reset successfully. You can now log in with your new password."
+            );
+
+            $id("pw").value = "";
+            $id("new-pw").value = "";
+            $id("confirm-pw").value = "";
+
+            // Return to the login form after a successful reset.
+            setTimeout(() => {
+                clearMessages();
+                setMode("login");
+            }, 1500);
+
+        } catch (error) {
+            showError(
+                "reset-err",
+                error.message || "Unable to reset your password."
+            );
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    $id("reset-submit").addEventListener("click", resetPassword);
+
+    // Support reset links such as login.html?token=...
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token");
+
+    if (urlToken) {
+        $id("reset-token").value = urlToken;
+        showPanel("reset-panel");
+    } else {
+        setMode("login");
+    }
+</script>
 </body>
 </html>
-
+```

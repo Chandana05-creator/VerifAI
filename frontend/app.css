@@ -428,13 +428,13 @@ input:focus, textarea:focus, select:focus {
   line-height: 1.3;
 }
 
-.agent[data-agent="ingest"] b::before        { content: "📥"; }
-.agent[data-agent="research"] b::before      { content: "🔎"; }
-.agent[data-agent="factcheck"] b::before     { content: "✅"; }
-.agent[data-agent="critic"] b::before        { content: "⚖️"; }
-.agent[data-agent="bias_detector"] b::before { content: "🧭"; }
-.agent[data-agent="summarizer"] b::before    { content: "📝"; }
-.agent[data-agent="plagiarism"] b::before    { content: "🧬"; }
+.agent[data-agent="ingest"] b::before        { content: ""; }
+.agent[data-agent="research"] b::before      { content: ""; }
+.agent[data-agent="factcheck"] b::before     { content: ""; }
+.agent[data-agent="critic"] b::before        { content: ""; }
+.agent[data-agent="bias_detector"] b::before { content: ""; }
+.agent[data-agent="summarizer"] b::before    { content: ""; }
+.agent[data-agent="plagiarism"] b::before    { content: ""; }
 
 .agent p { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 
@@ -753,4 +753,71 @@ button:focus-visible, a:focus-visible, .tab:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  /* Login and registration form fixes */
+.auth label {
+    display: block;
+    margin-top: 14px;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.auth input[type="email"],
+.auth input[type="password"],
+.auth input[type="text"] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.auth .tabs {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.auth .tabs .tab {
+    flex: 1;
+    padding: 11px;
+    cursor: pointer;
+}
+
+.auth .tabs .tab.active {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.auth button {
+    cursor: pointer;
+}
+
+.auth section[hidden],
+.auth div[hidden] {
+    display: none !important;
+}
+
+.auth .err {
+    color: #dc2626;
+    margin-top: 10px;
+}
+
+.auth #success,
+.auth #forgot-success,
+.auth #reset-success {
+    color: #15803d;
+    margin-top: 10px;
+}
+
+.auth #submit,
+.auth #forgot-submit,
+.auth #reset-submit {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+}
 }
