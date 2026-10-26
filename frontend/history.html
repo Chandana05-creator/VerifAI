@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VerifAI — History</title><link rel="stylesheet" href="app.css"></head>
+<body><div class="wrap"><div id="nav"></div>
+<h1>Your history</h1><div class="sub">Every check you ran while logged in.</div>
+<div class="banner" id="banner"></div>
+<div class="card"><table class="t"><thead><tr><th>Type</th><th>Input</th><th>Result</th><th>When</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+<div class="empty" id="empty" hidden>Nothing here yet. Run a check from the Verify page while logged in.</div></div></div>
+<script src="common.js"></script>
+<script>
+renderNav("history");
+const LABEL = {question: "Question", url: "Link", text: "Text", image: "Image", plagiarism: "Plagiarism"};
+async function load() {
+  if (!getToken()) { goto("login.html"); return; }
+  try {
+    const d = await api("/history?limit=100"); const body = $("rows"); body.textContent = "";
+    $("empty").hidden = d.sessions.length > 0;
+    d.sessions.forEach((s) => {
+      const tr = el("tr"), td = () => el("td");
+      const a = td(); a.append(el("span", "pill", LABEL[s.kind] || s.kind));
+      const b = td(); const l = el("a", null, s.query.length > 90 ? s.query.slice(0, 90) + "…" : s.query); l.href = "report.html?id=" + s.id; b.append(l);
+      const c = td(); c.textContent = !s.has_report ? "no result" : s.kind === "plagiarism" ? Math.round(100 - (s.avg_confidence || 0) * 100) + "% original"
+          : s.claim_count + " claims · avg " + Math.round((s.avg_confidence || 0) * 100) + "%" + (s.shared ? " · shared" : "");
+      const w = td(); w.textContent = whenText(s.created_at); w.className = "note";
+      const x = td(); const del = el("button", "ghost", "Delete");
+      del.onclick = async () => { if (confirm("Delete this entry?")) { await api("/history/" + s.id, { method: "DELETE" }); load(); } };
+      x.append(del); tr.append(a, b, c, w, x); body.append(tr);
+    });
+  } catch (e) { if (e.status === 401) { logout(); } else { $("banner").textContent = e.message; $("banner").className = "banner show"; } }
+}
+load();
+</script></body></html>

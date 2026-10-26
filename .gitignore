@@ -1,0 +1,10 @@
+.env
+venv311/
+venv/
+__pycache__/
+*.pyc
+*.sqlite
+*.db
+chroma*/
+.vscode/
+*.log

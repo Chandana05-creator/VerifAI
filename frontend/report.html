@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VerifAI — Report</title><link rel="stylesheet" href="app.css"></head>
+<body><div class="wrap"><div id="nav"></div>
+<h1 id="title">Report</h1><div class="sub" id="when"></div>
+<div class="banner" id="banner"></div>
+<div class="card" id="card" hidden><div class="actions" id="actions"></div><div class="stats" id="stats"></div><div id="report"></div></div>
+</div>
+<script src="common.js"></script>
+<script>
+renderNav("history");
+const qs = new URLSearchParams(location.search), id = qs.get("id"), share = qs.get("share");
+function fail(msg) { $("banner").textContent = msg; $("banner").className = "banner show"; }
+async function load() {
+  try {
+    const d = share ? await api("/share/" + encodeURIComponent(share)) : await api("/reports/" + encodeURIComponent(id));
+    $("title").textContent = d.query.length > 120 ? d.query.slice(0, 120) + "…" : d.query;
+    $("when").textContent = (d.kind === "plagiarism" ? "Plagiarism check" : "Fact-check") + " · " + whenText(d.created_at) + (share ? " · shared, read-only" : "");
+    $("card").hidden = false; $("stats").textContent = formatMetrics(d.metrics);
+    if (d.kind === "plagiarism") renderPlagiarism($("report"), d.report);
+    else renderReport($("report"), d.report, { sessionId: share ? null : d.id });
+    const a = $("actions");
+    if (!share) {
+      const pdf = el("button", "ghost", "Export PDF"), md = el("button", "ghost", "Export Markdown"), sh = el("button", "ghost", d.share_token ? "Copy share link" : "Create share link");
+      pdf.onclick = () => downloadFile("/reports/" + d.id + "/export?format=pdf", "report.pdf").catch((e) => alert(e.message));
+      md.onclick = () => downloadFile("/reports/" + d.id + "/export?format=md", "report.md").catch((e) => alert(e.message));
+      sh.onclick = async () => { try { const u = await shareReport(d.id); sh.textContent = "Link copied"; alert("Share link (copied):\n" + u); } catch (e) { alert(e.message); } };
+      a.append(pdf, md, sh);
+      if (d.share_token) { const rv = el("button", "ghost", "Stop sharing"); rv.onclick = async () => { await api("/reports/" + d.id + "/share", { method: "DELETE" }); location.reload(); }; a.append(rv); }
+    }
+  } catch (e) { fail(e.status === 404 ? "This report was not found, or you do not have access to it." : e.message); }
+}
+if (!id && !share) fail("No report selected."); else load();
+</script></body></html>

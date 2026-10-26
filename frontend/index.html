@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VerifAI — Research, Fact-Check, Bias &amp; Plagiarism</title><link rel="stylesheet" href="app.css"></head>
+<body><div class="wrap">
+<div id="nav"></div>
+<h1>Check anything</h1>
+<div class="sub">Ask a question, paste a link or text, upload a screenshot — or check a text for plagiarism. Each agent's progress streams live.</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div id="in-question"><div class="row"><input type="text" id="q" placeholder="Ask a question to research and fact-check…" autocomplete="off"></div>
+  <div class="chips" id="chips"></div></div>
+<div id="in-url" hidden><div class="row"><input type="url" id="u" placeholder="https://news-site.example/article"></div>
+  <div class="hint">VerifAI reads the page, picks out the key claims and checks each one against the web. It also rates the website itself.</div></div>
+<div id="in-text" hidden><div class="row"><textarea id="t" placeholder="Paste an article, a social-media post or a forwarded message…"></textarea></div></div>
+<div id="in-image" hidden><div class="row"><input type="file" id="f" accept="image/png,image/jpeg,image/webp,image/gif"></div>
+  <div class="hint">Screenshot of a message, post, headline or poster (max 5 MB). The text is read from the image, then fact-checked.</div></div>
+<div id="in-plag" hidden><div class="row"><textarea id="p" placeholder="Paste the text to check for plagiarism (at least ~15 words)…"></textarea></div>
+  <div class="hint">Each passage is searched on the web and compared with the pages found. Works for English and Indian-language text.</div></div>
+
+<div class="row" id="controls">
+  <select id="mode" title="Deep adds the Critic agent, which searches for counter-evidence against each strong claim">
+    <option value="deep">Deep (with Critic)</option><option value="quick">Quick</option></select>
+  <button id="go">Verify</button>
+</div>
+
+<div class="banner info" id="loginhint">Log in to keep a history of your checks and to share reports. <a href="login.html">Log in / register</a></div>
+<div class="pipeline" id="pipeline"></div>
+<div class="banner" id="banner"></div>
+
+<div class="card" id="result" hidden>
+  <div class="actions" id="actions"></div>
+  <div class="stats" id="stats"></div>
+  <div id="report"></div>
+</div>
+<div class="empty" id="empty">The first run can take 1–2 minutes.</div>
+<div class="log" id="log"></div>
+</div>
+<script src="common.js"></script>
+<script>
+renderNav("verify");
+if (getToken()) $("loginhint").style.display = "none";
+
+const TABS = [["question", "Question"], ["url", "Link"], ["text", "Text"], ["image", "Image"], ["plag", "Plagiarism"]];
+const NAMES = {ingest: "Input", research: "Research", factcheck: "Fact-check", critic: "Critic", bias_detector: "Bias detector", summarizer: "Summarizer", plagiarism: "Plagiarism check"};
+const FLOW = {question: ["research", "factcheck", "critic", "bias_detector", "summarizer"],
+              other: ["ingest", "factcheck", "critic", "bias_detector", "summarizer"], plag: ["plagiarism"]};
+let tab = "question", sessionId = null, gotReport = false, errors = [];
+
+TABS.forEach(([id, label]) => { const b = el("button", "tab", label); b.type = "button"; b.id = "tab-" + id; b.onclick = () => setTab(id); $("tabs").append(b); });
+["Is nuclear energy safer than coal?", "Does intermittent fasting improve health?", "Is the Great Wall of China visible from space?"].forEach((q) => {
+  const c = el("button", "chip", q); c.type = "button"; c.onclick = () => { $("q").value = q; start(); }; $("chips").append(c);
+});
+
+function buildCards(flow) {
+  $("pipeline").textContent = "";
+  flow.forEach((id) => { const c = el("div", "agent"); c.id = "card-" + id; c.dataset.agent = id; c.append(el("b", null, NAMES[id]), el("span", "tag", "Pending"), el("p", null, "Waiting…")); $("pipeline").append(c); });
+}
+function setTab(t) {
+  tab = t;
+  TABS.forEach(([id]) => { $("tab-" + id).classList.toggle("active", id === t); $("in-" + id).hidden = id !== t; });
+  $("mode").style.display = t === "plag" ? "none" : "";
+  $("go").textContent = t === "plag" ? "Check plagiarism" : "Verify";
+  buildCards(t === "question" ? FLOW.question : t === "plag" ? FLOW.plag : FLOW.other);
+}
+function setAgent(id, status, msg) {
+  const c = $("card-" + id); if (!c) return;
+  c.className = "agent " + status; c.querySelector(".tag").textContent = status === "running" ? "Running" : status === "done" ? "Done" : status === "error" ? "Error" : "Pending";
+  if (msg) c.querySelector("p").textContent = msg;
+}
+function log(m) { $("log").prepend(el("div", null, new Date().toLocaleTimeString() + "  " + m)); }
+function banner(text, info) { const b = $("banner"); b.textContent = text; b.className = "banner show" + (info ? " info" : ""); }
+
+async function start() {
+  $("go").disabled = true; $("empty").style.display = "none"; $("result").hidden = true; $("banner").className = "banner";
+  $("log").textContent = ""; gotReport = false; errors = []; sessionId = null; setTab(tab);
+  try {
+    const mode = $("mode").value; let r;
+    if (tab === "question") r = await api("/research", { method: "POST", body: { query: $("q").value, mode } });
+    else if (tab === "url") r = await api("/research/url", { method: "POST", body: { url: $("u").value, mode } });
+    else if (tab === "text") r = await api("/research/text", { method: "POST", body: { text: $("t").value, mode } });
+    else if (tab === "image") {
+      const f = $("f").files[0]; if (!f) throw new Error("Choose an image first.");
+      const form = new FormData(); form.append("file", f); form.append("mode", mode);
+      r = await api("/research/image", { method: "POST", form });
+    } else r = await api("/plagiarism", { method: "POST", body: { text: $("p").value } });
+    sessionId = r.session_id; log("Session started: " + sessionId);
+    connectStream(sessionId, onEvent, () => { $("go").disabled = false; });
+  } catch (e) {
+    banner(e.status ? e.message : "Could not reach the VerifAI server at " + API_BASE + ". Is it running? (" + e.message + ")");
+    $("go").disabled = false;
+  }
+}
+
+function showResult() {
+  $("result").hidden = false; const a = $("actions"); a.textContent = "";
+  const pdf = el("button", "ghost", "Export PDF"), md = el("button", "ghost", "Export Markdown"), sh = el("button", "ghost", "Share link");
+  pdf.onclick = () => downloadFile("/reports/" + sessionId + "/export?format=pdf", "report.pdf").catch((e) => alert(e.message));
+  md.onclick = () => downloadFile("/reports/" + sessionId + "/export?format=md", "report.md").catch((e) => alert(e.message));
+  sh.onclick = async () => { try { const u = await shareReport(sessionId); banner("Share link copied: " + u, true); } catch (e) { alert(e.message); } };
+  const open = el("a", "btn ghost", "Open as page"); open.href = "report.html?id=" + sessionId;
+  a.append(pdf, md, sh, open, el("span", "pill", "Was this useful?"), feedbackButtons(sessionId, null));
+}
+
+function onEvent(ev, ws) {
+  if (ev.type === "agent_update") { setAgent(ev.agent, ev.status === "done" ? "done" : ev.status === "error" ? "error" : "running", ev.message); log("[" + ev.agent + "] " + ev.message); }
+  else if (ev.type === "error") { if ($("card-" + ev.agent)) setAgent(ev.agent, "error", ev.message); errors.push(ev.agent + ": " + ev.message); log("[" + ev.agent + "] ERROR: " + ev.message); }
+  else if (ev.type === "final_report") { gotReport = true; setAgent("summarizer", "done", "Report ready"); showResult(); renderReport($("report"), ev.payload, { sessionId }); }
+  else if (ev.type === "plagiarism_report") { gotReport = true; setAgent("plagiarism", "done", "Check complete"); showResult(); renderPlagiarism($("report"), ev.payload); }
+  else if (ev.type === "pipeline_complete") {
+    // Never leave a card stuck on "Running" once the whole pipeline has finished.
+    document.querySelectorAll(".agent.running").forEach((c) => setAgent(c.id.replace("card-", ""), gotReport ? "done" : "error", gotReport ? "Finished" : "Did not finish"));
+    $("stats").textContent = formatMetrics(ev.payload);
+    if (errors.length) banner("Some steps reported errors — " + errors.slice(0, 3).join("  |  ") + "   (details are also printed in the server terminal)");
+    else if (!gotReport) banner("The run finished without producing a result.");
+    $("go").disabled = false; ws.close();
+  }
+}
+
+$("go").onclick = start;
+["q", "u"].forEach((id) => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") start(); }));
+setTab("question");
+</script></body></html>

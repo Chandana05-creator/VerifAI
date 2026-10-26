@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VerifAI — Analytics</title><link rel="stylesheet" href="app.css"></head>
+<body><div class="wrap"><div id="nav"></div>
+<h1>Analytics</h1><div class="sub">Usage, speed, cost and quality across the last 500 runs.</div>
+<div class="banner" id="banner"></div><div id="out"></div></div>
+<script src="common.js"></script>
+<script>
+renderNav("analytics");
+function kpi(v, label) { const k = el("div", "kpi"); k.append(el("b", null, v), el("span", null, label)); return k; }
+function bars(title, obj, fmt) {
+  const c = el("div", "card"); c.append(el("h2", null, title)); const wrap = el("div", "bars");
+  const entries = Object.entries(obj || {}); const max = Math.max(1, ...entries.map((e) => e[1]));
+  if (!entries.length) c.append(el("div", "note", "No data yet."));
+  entries.forEach(([k, v]) => { const r = el("div", "b"); const bar = el("div", "bar"), i = el("i"); i.style.width = (100 * v / max) + "%"; bar.append(i);
+    r.append(el("span", null, k.replace("_", " ")), bar, el("span", null, fmt ? fmt(v) : String(v))); wrap.append(r); });
+  c.append(wrap); return c;
+}
+async function load() {
+  if (!getToken()) { goto("login.html"); return; }
+  try {
+    const a = await api("/analytics/summary"), out = $("out");
+    const k = el("div", "kpis");
+    k.append(kpi(a.totals.runs, "total runs"), kpi(a.totals.fact_checks, "fact-checks"), kpi(a.totals.plagiarism_checks, "plagiarism checks"),
+      kpi(a.speed.avg_seconds + " s", "average time"), kpi(a.usage.avg_model_calls, "model calls / run"), kpi(Math.round(a.usage.avg_tokens).toLocaleString(), "tokens / run"),
+      kpi(pct(a.quality.avg_claim_confidence) + "%", "avg claim confidence"), kpi(a.quality.error_rate_percent + "%", "runs with errors"),
+      kpi(a.feedback.helpful_percent === null ? "–" : a.feedback.helpful_percent + "%", "found helpful (" + (a.feedback.up + a.feedback.down) + " votes)"));
+    out.append(k);
+    const days = el("div", "card"); days.append(el("h2", null, "Runs per day (last 14 days)")); const cols = el("div", "cols");
+    const mx = Math.max(1, ...a.runs_per_day.map((d) => d.runs));
+    a.runs_per_day.forEach((d) => { const c = el("div", "c"); c.style.height = (100 * d.runs / mx) + "%"; c.dataset.tip = d.date + ": " + d.runs; cols.append(c); });
+    days.append(cols); out.append(days);
+    const g = el("div", "grid2");
+    g.append(bars("Average seconds per agent", a.speed.agent_avg_seconds, (v) => v + " s"), bars("Claim verdicts", a.quality.verdicts),
+             bars("Critic outcomes", a.quality.critic_outcomes), bars("Inputs used", a.totals.by_input));
+    out.append(g);
+    const f = el("div", "card"); f.append(el("h2", null, "Recent feedback comments"));
+    if (!a.feedback.recent_comments.length) f.append(el("div", "note", "No comments yet."));
+    a.feedback.recent_comments.forEach((c) => f.append(el("div", "finding", (c.rating > 0 ? "👍 " : "👎 ") + c.comment)));
+    out.append(f);
+    out.append(el("div", "note", "Models: " + a.models.strong + " (strong), " + a.models.fast + " (fast)"));
+  } catch (e) { if (e.status === 401) logout(); else { $("banner").textContent = e.message; $("banner").className = "banner show"; } }
+}
+load();
+</script></body></html>

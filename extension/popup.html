@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>VerifAI</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+<header><div class="logo">V</div><div><b>VerifAI</b><small>Fact-check · bias · plagiarism</small></div>
+  <button id="gear" class="icon" title="Server settings" type="button">⚙</button></header>
+<section id="settings" hidden>
+  <label for="server">VerifAI server address</label>
+  <div class="row"><input id="server" type="text" placeholder="http://localhost:8000"><button id="save" type="button">Save</button></div>
+  <div class="hint" id="settingsmsg">The server must be running (start.bat). Chrome will ask permission for addresses other than localhost.</div>
+</section>
+<textarea id="text" placeholder="Select text on a page, then open this popup — or type / paste a claim here…"></textarea>
+<div class="row">
+  <button id="verify" type="button">Verify text</button>
+  <button id="page" type="button" class="ghost">Verify this page</button>
+  <button id="plag" type="button" class="ghost">Plagiarism</button>
+</div>
+<div id="steps"></div>
+<div id="msg" class="msg" hidden></div>
+<div id="result"></div>
+<script src="popup.js"></script>
+</body></html>

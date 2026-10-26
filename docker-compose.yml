@@ -1,0 +1,20 @@
+# Optional: run VerifAI (and PostgreSQL) in Docker.  Needs a .env file with your two API keys.
+services:
+  api:
+    build: .
+    ports: ["8000:8000"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://verifai:verifai@db:5432/verifai
+    depends_on: [db]
+    volumes: ["chroma-data:/app/backend/chroma_db"]
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: verifai
+      POSTGRES_PASSWORD: verifai
+      POSTGRES_DB: verifai
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+volumes:
+  pgdata:
+  chroma-data:

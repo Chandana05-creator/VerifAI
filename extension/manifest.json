@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "VerifAI — fact-check selection",
+  "version": "1.0.0",
+  "description": "Select text on any web page, right-click, and fact-check it with your VerifAI server. Also checks whole pages and plagiarism.",
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
+  "host_permissions": ["http://localhost:8000/*", "http://127.0.0.1:8000/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "VerifAI" },
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+}
