@@ -238,7 +238,7 @@ input[type="password"], textarea, select, input[type="file"] {
   width: 100%;
   min-width: 0;
   color: var(--text);
-  background: var(--surface);
+  background: var(--surface);s
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   outline: none;
