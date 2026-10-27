@@ -1,137 +1,606 @@
-/* VerifAI extension popup. Works with the VerifAI server (default http://localhost:8000).
-   Server text is inserted with textContent and links are checked, so web content cannot inject script. */
-const DEFAULT_SERVER = "http://localhost:8000";
-let server = DEFAULT_SERVER, running = false, errors = [], gotResult = false, ctx = { text: "", pageUrl: "" };
+/*
+ * VerifAI Chrome Extension
+ * Connects to the local VerifAI backend.
+ */
+
+const DEFAULT_SERVER = "http://127.0.0.1:8000";
+
+let server = DEFAULT_SERVER;
+let running = false;
+let errors = [];
+let gotResult = false;
+let ctx = { text: "", pageUrl: "" };
+
 const $ = (id) => document.getElementById(id);
-const pct = (x) => Math.round((Number(x) || 0) * 100);
-function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
-function safeUrl(u) { try { const x = new URL(String(u)); return x.protocol === "http:" || x.protocol === "https:" ? x.href : null; } catch (e) { return null; } }
-function link(url, text) { const h = safeUrl(url); if (!h) return el("span", null, text); const a = el("a", null, text); a.href = h; a.target = "_blank"; a.rel = "noopener noreferrer"; return a; }
-function msg(text, info) { const m = $("msg"); m.textContent = text; m.className = "msg" + (info ? " info" : ""); m.hidden = !text; }
 
-/* ── settings ── */
-async function loadSettings() {
-  const s = await chrome.storage.local.get({ server: DEFAULT_SERVER });
-  server = String(s.server || DEFAULT_SERVER).replace(/\/+$/, ""); $("server").value = server;
-}
-async function saveSettings() {
-  let v = $("server").value.trim().replace(/\/+$/, "");
-  const u = safeUrl(v); if (!u) { $("settingsmsg").textContent = "Enter an address like http://localhost:8000"; return; }
-  const origin = new URL(u).origin;
-  if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
-    const ok = await chrome.permissions.request({ origins: [origin + "/*"] });
-    if (!ok) { $("settingsmsg").textContent = "Permission was not granted for " + origin; return; }
-  }
-  server = origin; await chrome.storage.local.set({ server }); $("server").value = server;
-  $("settingsmsg").textContent = "Saved."; $("settings").hidden = true;
+const pct = (value) =>
+    Math.round((Number(value) || 0) * 100);
+
+function el(tag, cls, text) {
+    const element = document.createElement(tag);
+
+    if (cls) element.className = cls;
+    if (text !== undefined) element.textContent = text;
+
+    return element;
 }
 
-/* ── what to check ── */
-async function getContext() {
-  const p = new URLSearchParams(location.search);
-  if (p.has("text") || p.has("pageUrl")) return { text: p.get("text") || "", pageUrl: p.get("pageUrl") || "", auto: p.get("auto") || "" };
-  let text = "", pageUrl = "";
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    pageUrl = (tab && tab.url) || "";
-    if (tab && tab.id !== undefined) {
-      const r = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => String(window.getSelection()) });
-      text = (r && r[0] && r[0].result) || "";
+function safeUrl(value) {
+    try {
+        const url = new URL(String(value));
+
+        if (
+            url.protocol === "http:" ||
+            url.protocol === "https:"
+        ) {
+            return url.href;
+        }
+
+        return null;
+    } catch {
+        return null;
     }
-  } catch (e) { /* restricted pages (chrome://, the Web Store) cannot be read — the user can still type */ }
-  return { text, pageUrl, auto: "" };
 }
 
-/* ── run + stream ── */
-async function post(path, body) {
-  const res = await fetch(server + "/api/v1" + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!res.ok) { let m = "Server answered " + res.status; try { const j = await res.json(); if (j.detail) m = typeof j.detail === "string" ? j.detail : m; } catch (e) {} throw new Error(m); }
-  return res.json();
+function link(url, text) {
+    const safe = safeUrl(url);
+
+    if (!safe) {
+        return el("span", "", text);
+    }
+
+    const anchor = el("a", "", text);
+    anchor.href = safe;
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+
+    return anchor;
 }
-function steps(names) { $("steps").textContent = ""; names.forEach(([id, label]) => { const s = el("span", "step", label); s.id = "st-" + id; $("steps").append(s); }); }
-function step(id, status, tip) { const s = $("st-" + id); if (s) { s.className = "step " + status; if (tip) s.title = tip; } }
+
+function msg(message, info = false) {
+    const element = $("msg");
+
+    if (!element) return;
+
+    element.textContent = message || "";
+    element.className = info ? "msg info" : "msg";
+    element.hidden = !message;
+}
+
+/* SETTINGS */
+
+async function loadSettings() {
+    const saved = await chrome.storage.local.get({
+        server: DEFAULT_SERVER
+    });
+
+    server = String(saved.server || DEFAULT_SERVER)
+        .replace(/\/+$/, "");
+
+    $("server").value = server;
+}
+
+async function saveSettings() {
+    const value = $("server").value.trim().replace(/\/+$/, "");
+    const validUrl = safeUrl(value);
+
+    if (!validUrl) {
+        $("settingsmsg").textContent =
+            "Enter a valid server URL, such as http://127.0.0.1:8000";
+        return;
+    }
+
+    const parsed = new URL(validUrl);
+    const origin = parsed.origin;
+
+    if (
+        parsed.pathname !== "/" ||
+        parsed.search ||
+        parsed.hash
+    ) {
+        $("settingsmsg").textContent =
+            "Enter only the server address, without a path.";
+        return;
+    }
+
+    const localServer =
+        parsed.hostname === "localhost" ||
+        parsed.hostname === "127.0.0.1";
+
+    if (!localServer) {
+        try {
+            const granted = await chrome.permissions.request({
+                origins: [origin + "/*"]
+            });
+
+            if (!granted) {
+                $("settingsmsg").textContent =
+                    "Permission was not granted for " + origin;
+                return;
+            }
+        } catch (error) {
+            $("settingsmsg").textContent =
+                "Could not request permission: " + error.message;
+            return;
+        }
+    }
+
+    server = origin;
+
+    await chrome.storage.local.set({ server });
+
+    $("server").value = server;
+    $("settingsmsg").textContent = "Server address saved.";
+    $("settings").hidden = true;
+}
+
+/* PAGE AND TEXT INPUT */
+
+async function getContext() {
+    const params = new URLSearchParams(location.search);
+
+    if (params.has("text") || params.has("pageUrl")) {
+        return {
+            text: params.get("text") || "",
+            pageUrl: params.get("pageUrl") || "",
+            auto: params.get("auto") || ""
+        };
+    }
+
+    let text = "";
+    let pageUrl = "";
+
+    try {
+        const [tab] = await chrome.tabs.query({
+            active: true,
+            currentWindow: true
+        });
+
+        pageUrl = tab?.url || "";
+
+        if (tab?.id !== undefined) {
+            const result = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => String(window.getSelection())
+            });
+
+            text = result?.[0]?.result || "";
+        }
+    } catch (error) {
+        console.warn("Could not read the current page:", error);
+    }
+
+    return { text, pageUrl, auto: "" };
+}
+
+/* API REQUESTS */
+
+async function post(path, body) {
+    const response = await fetch(
+        server + "/api/v1" + path,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        }
+    );
+
+    if (!response.ok) {
+        let message = "Server returned HTTP " + response.status;
+
+        try {
+            const result = await response.json();
+
+            if (result.detail) {
+                message =
+                    typeof result.detail === "string"
+                        ? result.detail
+                        : JSON.stringify(result.detail);
+            }
+        } catch {
+            // Keep the HTTP status message.
+        }
+
+        throw new Error(message);
+    }
+
+    return response.json();
+}
+
+/* PROGRESS */
+
+function steps(names) {
+    $("steps").textContent = "";
+
+    names.forEach(([id, label]) => {
+        const element = el("span", "step", label);
+        element.id = "st-" + id;
+        $("steps").append(element);
+    });
+}
+
+function step(id, status, tip) {
+    const element = $("st-" + id);
+
+    if (!element) return;
+
+    element.className = "step " + status;
+
+    if (tip) {
+        element.title = tip;
+    }
+}
+
+function finish() {
+    running = false;
+
+    ["verify", "page", "plag"].forEach((id) => {
+        if ($(id)) $(id).disabled = false;
+    });
+}
+
+/* RUN VERIFICATION */
 
 async function start(kind) {
-  if (running) return;
-  const text = $("text").value.trim();
-  let path, body, flow;
-  if (kind === "page") {
-    if (!safeUrl(ctx.pageUrl)) return msg("This page cannot be checked (only normal http/https pages).");
-    path = "/research/url"; body = { url: ctx.pageUrl, mode: "quick" };
-  } else if (kind === "plag") {
-    if (text.split(/\s+/).length < 15) return msg("Paste at least about 15 words to check for plagiarism.");
-    path = "/plagiarism"; body = { text };
-  } else {
-    if (text.length < 3) return msg("Select some text on the page, or type a claim first.");
-    if (text.length >= 80) { path = "/research/text"; body = { text, mode: "quick" }; } else { path = "/research"; body = { query: text, mode: "quick" }; }
-  }
-  flow = kind === "plag" ? [["plagiarism", "Plagiarism check"]]
-    : [[kind === "page" || path.endsWith("/text") ? "ingest" : "research", kind === "page" || path.endsWith("/text") ? "Input" : "Research"], ["factcheck", "Fact-check"], ["critic", "Critic"], ["bias_detector", "Bias"], ["summarizer", "Summary"]];
-  running = true; gotResult = false; errors = []; msg(""); $("result").textContent = ""; steps(flow);
-  ["verify", "page", "plag"].forEach((b) => ($(b).disabled = true));
-  try {
-    const r = await post(path, body);
-    const ws = new WebSocket(server.replace(/^http/, "ws") + "/api/v1/ws/research/" + r.session_id);
-    ws.onmessage = (m) => { let ev; try { ev = JSON.parse(m.data); } catch (e) { return; } onEvent(ev, ws, r.session_id); };
-    ws.onclose = () => finish();
-    ws.onerror = () => msg("Could not open the live connection to " + server);
-  } catch (e) {
-    msg(/fetch|Failed|NetworkError/i.test(e.message) ? "Cannot reach the VerifAI server at " + server + ". Is it running (start.bat)?" : e.message);
-    finish();
-  }
+    if (running) return;
+
+    const text = $("text").value.trim();
+
+    let path;
+    let body;
+    let flow;
+
+    if (kind === "page") {
+    if (!safeUrl(ctx.pageUrl)) {
+        return msg(
+            "This page cannot be checked. Open a normal HTTP or HTTPS webpage."
+        );
+    }
+
+    path = "/research";
+    body = {
+        query:
+            "Research and fact-check the content of this webpage: " +
+            ctx.pageUrl,
+        mode: "quick"
+    };
+}else if (kind === "plag") {
+        if (text.split(/\s+/).filter(Boolean).length < 15) {
+            return msg(
+                "Enter at least 15 words to check for plagiarism."
+            );
+        }
+
+        path = "/plagiarism";
+        body = { text };
+    } else {
+        if (text.length < 3) {
+            return msg(
+                "Select text on a webpage or type a claim first."
+            );
+        }
+
+        path = "/research";
+body = {
+    query: text,
+    mode: "quick"
+};
+        }
+    }
+
+    if (kind === "plag") {
+        flow = [
+            ["plagiarism", "Plagiarism check"]
+        ];
+    } else {
+        flow = kind === "plag"
+    ? [["plagiarism", "Plagiarism check"]]
+    : [
+        ["research", "Research"],
+        ["factcheck", "Fact-check"],
+        ["critic", "Critic"],
+        ["bias_detector", "Bias"],
+        ["summarizer", "Summary"]
+    ];
+    }
+
+    running = true;
+    gotResult = false;
+    errors = [];
+
+    msg("");
+    $("result").textContent = "";
+    steps(flow);
+
+    ["verify", "page", "plag"].forEach((id) => {
+        $(id).disabled = true;
+    });
+
+    try {
+        const result = await post(path, body);
+
+        if (!result.session_id) {
+            throw new Error(
+                "The server response did not contain a session ID."
+            );
+        }
+
+        const wsUrl =
+            server.replace(/^http/, "ws") +
+            "/api/v1/ws/research/" +
+            encodeURIComponent(result.session_id);
+
+        const socket = new WebSocket(wsUrl);
+
+        socket.onmessage = (event) => {
+            let data;
+
+            try {
+                data = JSON.parse(event.data);
+            } catch {
+                return;
+            }
+
+            onEvent(data, socket, result.session_id);
+        };
+
+        socket.onclose = () => finish();
+
+        socket.onerror = () => {
+            msg(
+                "The live connection failed. Check the VerifAI server and WebSocket endpoint."
+            );
+        };
+    } catch (error) {
+        console.error("VerifAI request failed:", error);
+
+        msg(
+            "Verification failed: " +
+            (error.message || "Unknown error")
+        );
+
+        finish();
+    }
 }
-function finish() { running = false; ["verify", "page", "plag"].forEach((b) => ($(b).disabled = false)); }
 
-function onEvent(ev, ws, sid) {
-  if (ev.type === "agent_update") step(ev.agent, ev.status === "done" ? "done" : ev.status === "error" ? "error" : "running", ev.message);
-  else if (ev.type === "error") { step(ev.agent, "error", ev.message); errors.push(ev.agent + ": " + ev.message); }
-  else if (ev.type === "final_report") { gotResult = true; showReport(ev.payload, sid); }
-  else if (ev.type === "plagiarism_report") { gotResult = true; step("plagiarism", "done"); showPlag(ev.payload, sid); }
-  else if (ev.type === "pipeline_complete") {
-    if (errors.length) msg("Some steps reported errors: " + errors.slice(0, 2).join(" | "));
-    else if (!gotResult) msg("The run finished without a result.");
-    ws.close();
-  }
+/* PROCESS SERVER EVENTS */
+
+function onEvent(event, socket, sessionId) {
+    if (event.type === "agent_update") {
+        step(
+            event.agent,
+            event.status === "done"
+                ? "done"
+                : event.status === "error"
+                    ? "error"
+                    : "running",
+            event.message
+        );
+    } else if (event.type === "error") {
+        step(event.agent, "error", event.message);
+        errors.push(event.agent + ": " + event.message);
+    } else if (event.type === "final_report") {
+        gotResult = true;
+        showReport(event.payload, sessionId);
+    } else if (event.type === "plagiarism_report") {
+        gotResult = true;
+        step("plagiarism", "done");
+        showPlag(event.payload, sessionId);
+    } else if (event.type === "pipeline_complete") {
+        if (errors.length) {
+            msg(
+                "Some steps reported errors: " +
+                errors.slice(0, 2).join(" | ")
+            );
+        } else if (!gotResult) {
+            msg("The run finished without a result.");
+        }
+
+        socket.close();
+    }
 }
 
-function openFull(sid) { const d = el("div", "small"); d.append(link(server + "/ui/report.html?id=" + sid, "Open the full report in VerifAI →")); return d; }
+/* REPORT DISPLAY */
 
-function showReport(rep, sid) {
-  const root = $("result"); root.textContent = "";
-  const card = el("div", "card"), rel = rep.reliability || {};
-  if (rel.score !== undefined) { card.append(el("div", "big", pct(rel.score) + "%"), el("div", "small", "overall reliability — " + (rel.label || ""))); }
-  card.append(el("p", null, rep.executive_summary || ""));
-  root.append(card, el("h3", null, "Claims"));
-  (rep.all_claims || []).forEach((c) => {
-    const d = el("div", "claim"); d.append(el("div", null, c.text || ""));
-    const m = el("div", "meta"), tr = el("div", "track"), f = el("div", "fill");
-    f.style.width = pct(c.confidence) + "%"; f.style.background = c.verdict === "VERIFIED" ? "var(--ok)" : c.verdict === "DISPUTED" ? "var(--warn)" : "var(--bad)"; tr.append(f);
-    m.append(el("span", "badge " + c.verdict, c.verdict), tr, el("span", "small", pct(c.confidence) + "%"));
-    if (c.critic && c.critic.outcome) m.append(el("span", "badge " + c.critic.outcome, "critic: " + c.critic.outcome));
-    d.append(m); root.append(d);
-  });
-  const cites = rep.citation_items || [];
-  if (cites.length) { root.append(el("h3", null, "Sources")); cites.slice(0, 12).forEach((c) => { const d = el("div", "cite"); d.append(el("span", "small", "[" + c.n + "] "), link(c.url, c.title || c.url)); root.append(d); }); }
-  root.append(openFull(sid));
+function openFull(sessionId) {
+    const container = el("div", "small");
+
+    container.append(
+        link(
+            server + "/ui/report.html?id=" +
+            encodeURIComponent(sessionId),
+            "Open the full report in VerifAI"
+        )
+    );
+
+    return container;
 }
 
-function showPlag(res, sid) {
-  const root = $("result"); root.textContent = "";
-  const card = el("div", "card");
-  card.append(el("div", "big", res.originality_percent + "% original"), el("span", "badge " + res.risk, res.risk + " risk"),
-    el("div", "small", "Checked " + res.passages_checked + " of " + res.passages_total + " passages"));
-  root.append(card, el("h3", null, "Matching sources"));
-  if (!(res.sources || []).length) root.append(el("div", "small", "No matching sources found."));
-  (res.sources || []).forEach((s) => { const d = el("div", "cite"); d.append(el("span", "small", "[" + s.n + "] "), link(s.url, s.title || s.domain), el("span", "small", " — up to " + pct(s.max_overlap) + "% overlap")); root.append(d); });
-  root.append(openFull(sid));
+function showReport(report, sessionId) {
+    const root = $("result");
+
+    root.textContent = "";
+
+    const card = el("div", "card");
+    const reliability = report.reliability || {};
+
+    if (reliability.score !== undefined) {
+        card.append(
+            el("div", "big", pct(reliability.score) + "%"),
+            el(
+                "div",
+                "small",
+                "Overall reliability — " +
+                (reliability.label || "")
+            )
+        );
+    }
+
+    card.append(
+        el("p", null, report.executive_summary || "")
+    );
+
+    root.append(card, el("h3", null, "Claims"));
+
+    (report.all_claims || []).forEach((claim) => {
+        const container = el("div", "claim");
+
+        container.append(
+            el("div", null, claim.text || "")
+        );
+
+        const metadata = el("div", "meta");
+        const track = el("div", "track");
+        const fill = el("div", "fill");
+
+        fill.style.width = pct(claim.confidence) + "%";
+
+        fill.style.background =
+            claim.verdict === "VERIFIED"
+                ? "var(--ok)"
+                : claim.verdict === "DISPUTED"
+                    ? "var(--warn)"
+                    : "var(--bad)";
+
+        track.append(fill);
+
+        metadata.append(
+            el(
+                "span",
+                "badge " + (claim.verdict || ""),
+                claim.verdict || "UNKNOWN"
+            ),
+            track,
+            el("span", "small", pct(claim.confidence) + "%")
+        );
+
+        if (claim.critic?.outcome) {
+            metadata.append(
+                el(
+                    "span",
+                    "badge " + claim.critic.outcome,
+                    "Critic: " + claim.critic.outcome
+                )
+            );
+        }
+
+        container.append(metadata);
+        root.append(container);
+    });
+
+    const citations = report.citation_items || [];
+
+    if (citations.length) {
+        root.append(el("h3", null, "Sources"));
+
+        citations.slice(0, 12).forEach((citation) => {
+            const container = el("div", "cite");
+
+            container.append(
+                el("span", "small", "[" + citation.n + "] "),
+                link(
+                    citation.url,
+                    citation.title || citation.url
+                )
+            );
+
+            root.append(container);
+        });
+    }
+
+    root.append(openFull(sessionId));
 }
 
-/* ── start-up ── */
+function showPlag(report, sessionId) {
+    const root = $("result");
+
+    root.textContent = "";
+
+    const card = el("div", "card");
+
+    card.append(
+        el(
+            "div",
+            "big",
+            (report.originality_percent ?? "N/A") + "% original"
+        ),
+        el(
+            "span",
+            "badge " + (report.risk || ""),
+            (report.risk || "Unknown") + " risk"
+        ),
+        el(
+            "div",
+            "small",
+            "Checked " +
+            (report.passages_checked ?? 0) +
+            " of " +
+            (report.passages_total ?? 0) +
+            " passages"
+        )
+    );
+
+    root.append(card, el("h3", null, "Matching sources"));
+
+    const sources = report.sources || [];
+
+    if (!sources.length) {
+        root.append(
+            el("div", "small", "No matching sources found.")
+        );
+    }
+
+    sources.forEach((source) => {
+        const container = el("div", "cite");
+
+        container.append(
+            el("span", "small", "[" + source.n + "] "),
+            link(
+                source.url,
+                source.title || source.domain || source.url
+            ),
+            el(
+                "span",
+                "small",
+                " — up to " + pct(source.max_overlap) + "% overlap"
+            )
+        );
+
+        root.append(container);
+    });
+
+    root.append(openFull(sessionId));
+}
+
+/* INITIALIZE */
+
 (async function init() {
-  await loadSettings();
-  $("gear").onclick = () => { $("settings").hidden = !$("settings").hidden; };
-  $("save").onclick = saveSettings;
-  $("verify").onclick = () => start("text"); $("page").onclick = () => start("page"); $("plag").onclick = () => start("plag");
-  ctx = await getContext(); $("text").value = ctx.text;
-  if (ctx.auto === "text" && ctx.text) start("text"); else if (ctx.auto === "page") start("page");
+    try {
+        await loadSettings();
+
+        $("gear").onclick = () => {
+            $("settings").hidden = !$("settings").hidden;
+        };
+
+        $("save").onclick = saveSettings;
+
+        $("verify").onclick = () => start("text");
+        $("page").onclick = () => start("page");
+        $("plag").onclick = () => start("plag");
+
+        ctx = await getContext();
+
+        $("text").value = ctx.text || "";
+
+        if (ctx.auto === "text" && ctx.text) {
+            start("text");
+        } else if (ctx.auto === "page") {
+            start("page");
+        }
+    } catch (error) {
+        console.error("VerifAI extension initialization failed:", error);
+        msg("Extension initialization failed: " + error.message);
+    }
 })();
